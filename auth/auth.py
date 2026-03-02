@@ -11,24 +11,36 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from schemas.schema import Token, TokenData, User
+from pwdlib import PasswordHash
+import bcrypt
 
+
+password_hash = PasswordHash.recommended()
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return password_hash.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password: str) -> str:
+    return password_hash.hash(password)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/register/token",  # URL для получения токена
+    auto_error=True    # Автоматически выбрасывать 401 ошибку
+)
 
-def veryfi_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+
 
 
 def authenticate_user(db:Session, username: str, password: str):
     stmt = select(Users).where(Users.username ==  username)
     user = db.execute(stmt).scalar_one_or_none()
     
-    if not user or not veryfi_password(password, user.hashed_password):
+    if not user or not verify_password(password, user.hashed_password):
         return False
     return user
    
@@ -43,13 +55,15 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encode_jwt
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db:Session = Depends(get_db)):
+def get_current_user(token: str = Depends(oauth2_scheme),db: Session=Depends(get_db)):
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
+        
         payload = jwt.decode(token, setting.secret_key, algorithms=[setting.algorithm])
         username: str = payload.get("sub")
         if username is None:
@@ -69,3 +83,5 @@ def get_current_active_user(current_user: User = Depends(get_current_user)):
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
+
+

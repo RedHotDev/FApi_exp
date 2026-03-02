@@ -25,8 +25,10 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
 
 @routerAuth.post("/token", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)): 
+    print(form_data.username)
     user = authenticate_user(db, form_data.username, form_data.password)
+    
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -42,5 +44,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 
 @routerAuth.get("/users/me", response_model=User)
-async def read_users_me(current_user: User = Depends(get_current_active_user)):
+def read_users_me(current_user: User = Depends(get_current_active_user)):
+    print(current_user.username)
     return current_user
